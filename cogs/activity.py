@@ -65,7 +65,7 @@ class ActivityManagement(commands.Cog):
     ):
         user_id = str(interaction.user.id)
         display_name = interaction.user.display_name
-        formatted_date = datetime.now().strftime("%Y-%m-%d %I:%M %p %Z")
+        timestamp_now = int(datetime.now().timestamp())  # Store as Unix timestamp
 
         # Restrict command to the "inactives" channel
         inactives_channel = config.CHANNEL_IDS.get("inactives")
@@ -101,11 +101,11 @@ class ActivityManagement(commands.Cog):
                     if any(entry["Discord User ID"] == user_id for entry in data):
                         continue  # Skip adding again if already inactive
 
-                    # Add new inactivity entry in the correct order
+                    # Add new inactivity entry
                     data.append({
                         "Display Name": display_name,
                         "Discord User ID": user_id,
-                        "Date & Time": formatted_date
+                        "Date & Time": timestamp_now  # Store as Unix timestamp
                     })
 
                     self.save_data(file_path, data)

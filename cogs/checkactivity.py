@@ -5,6 +5,8 @@ import os
 import json
 import config
 from datetime import datetime
+import pytz  # Ensure timestamps are in UTC
+
 
 class CheckActivity(commands.Cog):
     def __init__(self, bot):
@@ -32,9 +34,19 @@ class CheckActivity(commands.Cog):
                 )
 
     def convert_to_timestamp(self, date_string):
-        """Converts the Date & Time string into a Discord timestamp format."""
+        """Converts the Date & Time string into a Unix timestamp format for Discord."""
+        if isinstance(date_string, int):  
+            # If it's already a Unix timestamp, return it directly
+            return date_string  
+
         try:
+            # Ensure the input is a string before parsing
+            if not isinstance(date_string, str):
+                return None  
+
+            # Attempt to parse the datetime string
             dt_object = datetime.strptime(date_string, "%Y-%m-%d %I:%M %p %Z")
+            dt_object = dt_object.replace(tzinfo=pytz.UTC)  # Ensure UTC timezone
             return int(dt_object.timestamp())  # Convert to Unix timestamp
         except ValueError:
             return None  # Return None if parsing fails
@@ -50,7 +62,7 @@ class CheckActivity(commands.Cog):
             required=True,
         ),
     ):
-        await interaction.response.defer()  # Properly defer the interaction to allow multiple follow-ups
+        await interaction.response.defer()  # Prevents command timeout
 
         # Restrict command usage to 'controlpanel' channel
         controlpanel_channel = config.CHANNEL_IDS.get("controlpanel")
@@ -70,10 +82,11 @@ class CheckActivity(commands.Cog):
             )
             return
 
-        # Load data for selected game(s)
+        # Load data based on selected game
         osrs_data = self.load_data(self.osrs_file) if game in ["osrs", "both"] else []
         rs3_data = self.load_data(self.rs3_file) if game in ["rs3", "both"] else []
 
+        # Embed storage
         embeds = []
 
         if osrs_data:
@@ -82,8 +95,8 @@ class CheckActivity(commands.Cog):
                 color=0xFFD700  # Gold color for OSRS
             )
             for entry in osrs_data:
-                timestamp = self.convert_to_timestamp(entry['Date & Time'])
-                formatted_time = f"<t:{timestamp}:F>" if timestamp else entry['Date & Time']
+                timestamp = self.convert_to_timestamp(entry.get("Date & Time", ""))
+                formatted_time = f"<t:{timestamp}:F>" if timestamp else entry["Date & Time"]
 
                 osrs_embed.add_field(
                     name=f"👤 {entry['Display Name']}",
@@ -98,8 +111,8 @@ class CheckActivity(commands.Cog):
                 color=0x1E90FF  # Blue color for RS3
             )
             for entry in rs3_data:
-                timestamp = self.convert_to_timestamp(entry['Date & Time'])
-                formatted_time = f"<t:{timestamp}:F>" if timestamp else entry['Date & Time'] 
+                timestamp = self.convert_to_timestamp(entry.get("Date & Time", ""))
+                formatted_time = f"<t:{timestamp}:F>" if timestamp else entry["Date & Time"]
 
                 rs3_embed.add_field(
                     name=f"👤 {entry['Display Name']}",
@@ -108,7 +121,7 @@ class CheckActivity(commands.Cog):
                 )
             embeds.append(rs3_embed)
 
-        # If there are no inactive members, show a yellow embed
+        # If no inactive members exist, show a yellow embed
         if not osrs_data and not rs3_data:
             no_inactive_embed = nextcord.Embed(
                 title="⚠ No Inactive Members",
@@ -117,12 +130,13 @@ class CheckActivity(commands.Cog):
             )
             embeds.append(no_inactive_embed)
 
-        # Ensure that all embeds are sent
+        # Send all collected embeds
         for embed in embeds:
-            await interaction.followup.send(embed=embed)  # Use followup instead of response
+            await interaction.followup.send(embed=embed)
 
         # Log command usage
         await self.log_command_usage(interaction, "checkactivity")
+
 
 def setup(bot):
     bot.add_cog(CheckActivity(bot))
