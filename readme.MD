@@ -45,38 +45,9 @@ Ghosted Bot is a powerful and efficient Discord bot designed to manage clan acti
 - `*/writethatdown` - Creates a new documentation record for the provided clan member.
 - `*/writethatdown-merge` - Merges two JSON files together.
 
-## Installation
-
-1. Clone the repository:
-   ```sh
-   git clone git@github.com:yourusername/ghostedbot.git
-   ```
-2. Navigate into the directory:
-   ```sh
-   cd ghostedbot
-   ```
-3. Set up a virtual environment (optional but recommended):
-   ```sh
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-   ```
-4. Install dependencies:
-   ```sh
-   pip install -r requirements.txt
-   ```
-5. Configure your `config.py` file (make sure it is excluded from version control using `.gitignore`).
-6. Start the bot:
-   ```sh
-   python bot.py
-   ```
-
 ## Contributing
 
 Contributions are welcome! Please fork the repository, make changes, and submit a pull request.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contact
 
