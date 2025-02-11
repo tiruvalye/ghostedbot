@@ -129,9 +129,9 @@ class FetchCog(commands.Cog):
                 for line in lines:
                     name, rank, join_date = line.split(",")
 
-                    # Convert Join Date from DD-MMM-YY to MM/DD/YYYY
+                    # Convert Join Date from DD-MMM-YYYY to MM/DD/YYYY
                     try:
-                        date_obj = datetime.strptime(join_date.strip(), "%d-%b-%y")
+                        date_obj = datetime.strptime(join_date.strip(), "%d-%b-%Y")
                         formatted_date = date_obj.strftime("%m/%d/%Y")
                     except ValueError:
                         formatted_date = "Unknown"

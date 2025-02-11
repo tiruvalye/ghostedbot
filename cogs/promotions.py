@@ -4,7 +4,8 @@ from nextcord import Interaction, SlashOption, Embed
 import logging
 import traceback
 import config
-from logic.promos_rs3_logic import run_promotions
+from logic.promos_rs3_logic import run_promotions as run_rs3_promotions
+from logic.promos_osrs_logic import run_promotions as run_osrs_promotions
 
 logger = logging.getLogger(__name__)
 
@@ -12,14 +13,14 @@ class PromotionsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @nextcord.slash_command(name="promotions", description="Run promotions for RuneScape 3 members.")
+    @nextcord.slash_command(name="promotions", description="Run promotions for RuneScape 3 or Old School RuneScape members.")
     async def promotions(
         self,
         interaction: Interaction,
         game: str = SlashOption(
             name="game",
             description="Specify the game version for promotions.",
-            choices={"RuneScape 3": "rs3"},
+            choices={"RuneScape 3": "rs3", "Old School RuneScape": "osrs"},
             required=True,
         ),
     ):
@@ -35,15 +36,31 @@ class PromotionsCog(commands.Cog):
                 )
                 return
 
-            if config.ROLE_IDS['rs3botmod'] not in [role.id for role in user.roles]:
-                await interaction.response.send_message(
-                    f"<@{user.id}> you do not have permission to use this command.",
-                    ephemeral=True
-                )
-                return
+            if game == "rs3":
+                if config.ROLE_IDS['rs3botmod'] not in [role.id for role in user.roles]:
+                    await interaction.response.send_message(
+                        f"<@{user.id}> you do not have permission to use this command.",
+                        ephemeral=True
+                    )
+                    return
 
-            # Run the promotion logic
-            promotion_summary, debug_details = run_promotions()
+                # Run the RS3 promotion logic
+                promotion_summary, debug_details = run_rs3_promotions()
+
+            elif game == "osrs":
+                if config.ROLE_IDS['osrsbotmod'] not in [role.id for role in user.roles]:
+                    await interaction.response.send_message(
+                        f"<@{user.id}> you do not have permission to use this command.",
+                        ephemeral=True
+                    )
+                    return
+
+                # Run the OSRS promotion logic
+                promotion_summary, debug_details = run_osrs_promotions()
+
+            # Handle case with no promotions
+            if not promotion_summary:
+                promotion_summary = "No promotions were found."
 
             embed = Embed(
                 title="🎖️ Promotion Summary 🎖️",
@@ -53,9 +70,9 @@ class PromotionsCog(commands.Cog):
 
             await interaction.response.send_message(embed=embed)
 
-            # Send debug details to the debugging channel
+            # Send debug details to the debugging channel only if there's content
             debugging_channel = self.bot.get_channel(config.CHANNEL_IDS['debugging'])
-            if debugging_channel:
+            if debugging_channel and debug_details:
                 await debugging_channel.send(f"Promotion Debug Details:\n{debug_details}")
 
         except Exception as e:

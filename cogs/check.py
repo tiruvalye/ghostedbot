@@ -13,15 +13,16 @@ class CheckCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.rs3_data_dir = "/root/ghosted-bot/data/members/runescape3"
+        self.osrs_data_dir = "/root/ghosted-bot/data/members/oldschoolrunescape"
 
-    @nextcord.slash_command(name="check", description="Check RuneScape 3 members without join dates.")
+    @nextcord.slash_command(name="check", description="Check members without join dates for RuneScape 3 or Old School RuneScape.")
     async def check(
         self,
         interaction: Interaction,
         game: str = SlashOption(
             name="game",
             description="Specify the game version to check.",
-            choices={"RuneScape 3": "rs3"},
+            choices={"RuneScape 3": "rs3", "Old School RuneScape": "osrs"},
             required=True,
         ),
     ):
@@ -37,19 +38,29 @@ class CheckCog(commands.Cog):
                 )
                 return
 
-            if config.ROLE_IDS['rs3botmod'] not in [role.id for role in user.roles]:
-                await interaction.response.send_message(
-                    f"<@{user.id}> you do not have permission to use this command.",
-                    ephemeral=True
-                )
-                return
+            if game == "rs3":
+                if config.ROLE_IDS['rs3botmod'] not in [role.id for role in user.roles]:
+                    await interaction.response.send_message(
+                        f"<@{user.id}> you do not have permission to use this command.",
+                        ephemeral=True
+                    )
+                    return
 
-            # Load RS3 member data
-            file_path = os.path.join(self.rs3_data_dir, "rs3_memberlist.json")
+                file_path = os.path.join(self.rs3_data_dir, "rs3_memberlist.json")
+
+            elif game == "osrs":
+                if config.ROLE_IDS['osrsbotmod'] not in [role.id for role in user.roles]:
+                    await interaction.response.send_message(
+                        f"<@{user.id}> you do not have permission to use this command.",
+                        ephemeral=True
+                    )
+                    return
+
+                file_path = os.path.join(self.osrs_data_dir, "osrs_memberlist.json")
 
             if not os.path.exists(file_path):
                 await interaction.response.send_message(
-                    "No RS3 member list found. Please run `/fetch game: RuneScape 3` first.",
+                    f"No {game.upper()} member list found. Please run `/fetch game: {game.upper()}` first.",
                     ephemeral=True
                 )
                 return
