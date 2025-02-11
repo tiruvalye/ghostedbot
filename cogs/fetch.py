@@ -15,11 +15,14 @@ class FetchCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.rs3_data_dir = "/root/ghosted-bot/data/members/runescape3"
+        self.osrs_data_dir = "/root/ghosted-bot/data/members/oldschoolrunescape"
         self.discord_data_dir = "/root/ghosted-bot/data/members/discord"
-        self.api_url = "http://services.runescape.com/m=clan-hiscores/members_lite.ws?clanName=Ghosted"
+        self.rs3_api_url = "http://services.runescape.com/m=clan-hiscores/members_lite.ws?clanName=Ghosted"
+        self.osrs_api_url = "https://www.ghostedbot.com/data/osrs_clanexport.csv"
 
         # Ensure the data directories exist
         os.makedirs(self.rs3_data_dir, exist_ok=True)
+        os.makedirs(self.osrs_data_dir, exist_ok=True)
         os.makedirs(self.discord_data_dir, exist_ok=True)
 
         # Role IDs
@@ -27,14 +30,14 @@ class FetchCog(commands.Cog):
         self.osrs_member_role = 1086485830018797650
         self.rs3_member_role = 973796251835432970
 
-    @nextcord.slash_command(name="fetch", description="Fetch data for RuneScape 3 or Discord.")
+    @nextcord.slash_command(name="fetch", description="Fetch data for RuneScape 3, Old School RuneScape, or Discord.")
     async def fetch(
         self,
         interaction: Interaction,
         game: str = SlashOption(
             name="game",
             description="Specify the game version to fetch data for.",
-            choices={"RuneScape 3": "rs3", "Discord": "discord"},
+            choices={"RuneScape 3": "rs3", "Old School RuneScape": "osrs", "Discord": "discord"},
             required=True,
         ),
     ):
@@ -59,7 +62,7 @@ class FetchCog(commands.Cog):
                     return
 
                 # Fetch RS3 clan data
-                response = requests.get(self.api_url)
+                response = requests.get(self.rs3_api_url)
                 if response.status_code != 200:
                     await interaction.response.send_message(
                         f"Failed to fetch data from RuneScape API. Status code: {response.status_code}",
@@ -97,56 +100,59 @@ class FetchCog(commands.Cog):
 
                 confirmation_message = "The RuneScape 3 clan member list has been fetched and updated successfully."
 
-            elif game == "discord":
-                if config.ROLE_IDS['discordbotmod'] not in [role.id for role in user.roles]:
+            elif game == "osrs":
+                if config.ROLE_IDS['osrsbotmod'] not in [role.id for role in user.roles]:
                     await interaction.response.send_message(
                         f"<@{user.id}> you do not have permission to use this command.",
                         ephemeral=True
                     )
                     return
 
-                guild = interaction.guild
-                discord_guests = []
-                osrs_members = []
-                rs3_members = []
+                # Fetch OSRS clan data
+                response = requests.get(self.osrs_api_url)
+                if response.status_code != 200:
+                    await interaction.response.send_message(
+                        f"Failed to fetch data from OSRS API. Status code: {response.status_code}",
+                        ephemeral=True
+                    )
+                    return
 
-                for member in guild.members:
-                    roles = [role.id for role in member.roles]
+                lines = response.text.strip().split('\n')[1:]  # Skip header
+                members_data = {}
+                file_path = os.path.join(self.osrs_data_dir, "osrs_memberlist.json")
 
-                    # Discord Guests
-                    if self.discord_guest_role in roles and not (
-                        self.osrs_member_role in roles or self.rs3_member_role in roles
-                    ):
-                        discord_guests.append({
-                            "DiscordID": member.id,
-                            "Nickname": member.nick if member.nick else member.display_name
-                        })
+                if os.path.exists(file_path):
+                    with open(file_path, "r") as f:
+                        members_data = json.load(f)
 
-                    # OSRS Members
-                    if self.osrs_member_role in roles:
-                        osrs_members.append({
-                            "DiscordID": member.id,
-                            "Nickname": member.nick if member.nick else member.display_name
-                        })
+                current_members = {}
+                for line in lines:
+                    name, rank, join_date = line.split(",")
 
-                    # RS3 Members
-                    if self.rs3_member_role in roles:
-                        rs3_members.append({
-                            "DiscordID": member.id,
-                            "Nickname": member.nick if member.nick else member.display_name
-                        })
+                    # Convert Join Date from DD-MMM-YY to MM/DD/YYYY
+                    try:
+                        date_obj = datetime.strptime(join_date.strip(), "%d-%b-%y")
+                        formatted_date = date_obj.strftime("%m/%d/%Y")
+                    except ValueError:
+                        formatted_date = "Unknown"
 
-                # Save the data
-                with open(os.path.join(self.discord_data_dir, "discord_guests.json"), "w") as f:
-                    json.dump(discord_guests, f, indent=4)
+                    current_members[name] = {
+                        "Clan Rank": rank,
+                        "Join Date": formatted_date
+                    }
 
-                with open(os.path.join(self.discord_data_dir, "osrs_members.json"), "w") as f:
-                    json.dump(osrs_members, f, indent=4)
+                # Remove members no longer in the clan
+                removed_members = set(members_data.keys()) - set(current_members.keys())
+                for member in removed_members:
+                    del members_data[member]
 
-                with open(os.path.join(self.discord_data_dir, "rs3_members.json"), "w") as f:
-                    json.dump(rs3_members, f, indent=4)
+                # Update members and add new ones
+                members_data.update(current_members)
 
-                confirmation_message = "The Discord member lists have been fetched and updated successfully."
+                with open(file_path, "w") as f:
+                    json.dump(members_data, f, indent=4)
+
+                confirmation_message = "The Old School RuneScape clan member list has been fetched and updated successfully."
 
             # Logging command usage
             log_channel = self.bot.get_channel(config.CHANNEL_IDS['logs'])

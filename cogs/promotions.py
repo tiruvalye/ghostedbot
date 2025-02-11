@@ -45,18 +45,11 @@ class PromotionsCog(commands.Cog):
             # Run the promotion logic
             promotion_summary, debug_details = run_promotions()
 
-            if promotion_summary:
-                embed = Embed(
-                    title="Promotion Summary",
-                    description=promotion_summary,
-                    color=nextcord.Color.green()
-                )
-            else:
-                embed = Embed(
-                    title="Promotion Summary",
-                    description="No promotions were processed.",
-                    color=nextcord.Color.orange()
-                )
+            embed = Embed(
+                title="🎖️ Promotion Summary 🎖️",
+                description=promotion_summary,
+                color=nextcord.Color.green()
+            )
 
             await interaction.response.send_message(embed=embed)
 
